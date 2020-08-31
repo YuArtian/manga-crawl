@@ -49,37 +49,38 @@ const writeFile = (img_stream, html_name, img_name) => {
 // main
 (async function(){
   try {
-    console.log('=== main start ===\r\n')
+    // console.log('=== main start ===\r\n')
     // 根据 html_list 获取 html 文件
     const html_length = html_list.length
-    for (let html_i = 0; html_i < 1; html_i++) {
+    for (let html_i = 0; html_i < html_length; html_i++) {
       const html_url = html_list[html_i];
       const html_name = `第${html_i + 1}回`
       // 创建章节目录
-      console.log(`创建章节目录:: ${html_name}\r\n`)
+      // console.log(`创建章节目录:: ${html_name}\r\n`)
       await fs.promises.mkdir(path.resolve(__dirname, `../../dist/bleach/${html_name}`), { recursive: true })
       // 获取 HTML
-      console.log(`HTML:: 开始下载 -${html_name}\r\n`)
+      // console.log(`HTML:: 开始下载 -${html_name}\r\n`)
       // url: 'https://www.manhuadb.com/manhua/141/5558_92149_p1.html',
       const html = await request('GET', html_url)
-      console.log(`HTML:: 完成下载 -${html_name}\r\n`)
+      // console.log(`HTML:: 完成下载 -${html_name}\r\n`)
       // 每一章的图片列表
       const img_url_list = get_img_url_list(html)
       // 依次下载图片并保存本地
       const img_length = img_url_list.length
       // 根据 img_url_list 获取并保存图片
-      console.log('')
-      for (let img_i = 0; img_i < 10; img_i++) {
+      console.log(`开始下载${html_name}\r\n`)
+      for (let img_i = 0; img_i < img_length; img_i++) {
         const img_url = img_url_list[img_i];
         const img_name = img_i + 1
         // 下载图片
-        console.log(`IMG:: 开始下载 -${html_name} 第${img_name}\r\n${img_url}\r\n`)
+        console.log(`IMG:: 开始下载 -${html_name} -${img_name}\r\n${img_url}`)
         const img_stream = await request('GET', img_url, { responseType: "stream" })
-        console.log(`IMG:: 完成下载 -${html_name} 第${img_name}\r\n`)
+        console.log(`IMG:: 完成下载 -${html_name} -${img_name}`)
         // 写入本地
         await writeFile(img_stream, html_name, img_name)
-        console.log(`${html_name}:: 写入${img_name}图片成功`)
+        console.log(`${html_name}:: 写入${img_name}图片成功\r\n`)
       }
+      console.log(`${html_name}下载完成\r\n`)
     }
   } catch (error) {
     console.log('ERROR:: main\r\n',error)
