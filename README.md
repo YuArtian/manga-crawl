@@ -1,8 +1,8 @@
 # manga-crawl
 
-### 这是一个漫画爬虫
+> 这是一个漫画爬虫
 
-#### 使用
+## 使用
 
 ```js
 // 安装
@@ -17,7 +17,7 @@ npm run bleach
 // 不行就重头再来吧 ~哈哈
 ```
 
-#### 因
+## 因
 
 对我来讲看漫画是刚需
 
@@ -25,9 +25,9 @@ npm run bleach
 
 然而，各种App上都是超贵的付费内容
 
-<img src="./doc/img/WechatIMG1.png">
-<img src="./doc/img/WechatIMG2.png">
-<img src="./doc/img/WechatIMG4.png">
+<img src="./doc/img/WechatIMG1.png" style="width:80px">
+<img src="./doc/img/WechatIMG2.png" style="width:80px">
+<img src="./doc/img/WechatIMG4.png" style="width:80px">
 
 无论是B站还是腾讯，一本漫画就要一两百块。。
 
@@ -39,7 +39,7 @@ npm run bleach
 
 所以想着写个脚本把图片下过来存手机里就行了，然后就有了这个爬虫
 
-#### 果
+## 果
 
 只写出了简陋的爬虫，实现了简陋的功能
 
