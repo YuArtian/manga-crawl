@@ -25,9 +25,14 @@ npm run bleach
 
 然而，各种App上都是超贵的付费内容
 
-<img src="./doc/img/WechatIMG1.png" style="width:80px">
-<img src="./doc/img/WechatIMG2.png" style="width:80px">
-<img src="./doc/img/WechatIMG4.png" style="width:80px">
+<div>
+  <img src="./doc/img/WechatIMG1.png" width="260">
+  <img src="./doc/img/WechatIMG2.png" width="260">
+</div>
+<div>
+  <img src="./doc/img/WechatIMG5.png" width="260">
+  <img src="./doc/img/WechatIMG4.png" width="260">
+</div>
 
 无论是B站还是腾讯，一本漫画就要一两百块。。
 
@@ -38,10 +43,4 @@ npm run bleach
 本来就花流量，还要加小广告 -，-
 
 所以想着写个脚本把图片下过来存手机里就行了，然后就有了这个爬虫
-
-## 果
-
-只写出了简陋的爬虫，实现了简陋的功能
-
-后面看看能不能做个 App 出来，等我上班不用 007 的时候琢磨一下
 
