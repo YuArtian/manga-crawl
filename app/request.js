@@ -5,6 +5,7 @@ const request = async (type='GET', url, configs={}) => {
     const res = await axios({
       url,
       method: type,
+      timeout: 6000,
       ...configs
     })
     return res.data

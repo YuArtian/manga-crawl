@@ -41,8 +41,14 @@ const writeFile = (img_stream, html_name, img_name) => {
     const distFileName = path.resolve(__dirname, `../../dist/bleach/${html_name}/${img_name}.jpg`)
     const stream = fs.createWriteStream(distFileName, { encoding: 'binary' });
     img_stream.pipe(stream);
-    stream.on("finish", resolve);
-    stream.on("error", reject);
+    stream.on("finish", () => {
+      console.log('stream finish')
+      resolve()
+    });
+    stream.on("error", () => {
+      console.log('stream error')
+      reject()
+    });
   });
 };
 
