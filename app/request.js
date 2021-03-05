@@ -11,6 +11,7 @@ const request = async (type='GET', url, configs={}) => {
     return res.data
   } catch (error) {
     console.log('ERROR::request', error)
+    return Promise.reject(error)
   }
 }
 

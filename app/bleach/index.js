@@ -2,6 +2,10 @@ const cheerio = require('cheerio')
 const path = require('path')
 const fs = require('fs')
 const request = require('../request')
+const ERROR_FILE = path.join(__dirname, './error.json')
+const ERROR_LIST = []
+const ERROR_SECTION = 'ERROR_SECTION'
+const ERROR_CHAPTER = 'ERROR_CHAPTER'
 
 /* 读取配置 */
 // https://www.manhuadb.com/manhua/141
@@ -12,12 +16,13 @@ const book_1_list = book.hasPart[0].hasPart.map(i => i.url)
 const book_2_list = book.hasPart[1].hasPart.map(i => i.url)
 // 番外
 const book_3_list = book.hasPart[2].hasPart.map(i => i.url)
-
-const html_list = [...book_1_list, ...book_2_list, ...book_3_list]
+// 总章数列表
+const chapter_list = [...book_1_list, ...book_2_list, ...book_3_list]
 
 /* 从 html 中获取图片url列表 */
-const get_img_url_list = html => {
+const get_img_url_list = async chapter_url => {
   try {
+    const html = await request('GET', chapter_url)
     // 加载 html
     const $ = cheerio.load(html)
     // 图片信息
@@ -31,64 +36,103 @@ const get_img_url_list = html => {
     // 图片 url 列表
     return img_list.map(i => `${img_host}${img_pre}${i.img}`)
   } catch (error) {
-    console.log('ERROR:: get_img_list\r\n', error)
+    console.error('ERROR:: get_img_list\r\n', error)
+    return Promise.reject({code: ERROR_CHAPTER, url: chapter_url})
   }
 }
 
-/* 写入文件 */
-const writeFile = (img_stream, html_name, img_name) => {
+/* 写入图片 */
+const writeFile = (section_stream, chapter_name, section_number) => {
   return new Promise((resolve, reject) => {
-    const distFileName = path.resolve(__dirname, `../../dist/bleach/${html_name}/${img_name}.jpg`)
-    const stream = fs.createWriteStream(distFileName, { encoding: 'binary' });
-    img_stream.pipe(stream);
-    stream.on("finish", () => {
-      console.log('stream finish')
-      resolve()
-    });
-    stream.on("error", () => {
-      console.log('stream error')
-      reject()
-    });
+    const distFileName = path.resolve(__dirname, `../../dist/bleach/${chapter_name}/${section_number}.jpg`)
+      console.log(`开始写入：/dist/bleach/${chapter_name}/${section_number}.jpg`)
+      const stream = fs.createWriteStream(distFileName, { encoding: 'binary' });
+      section_stream.pipe(stream);
+      stream.on('close', () => {
+        console.log('stream close')
+        resolve()
+      })
+      stream.on("error", (error) => {
+        console.error('ERROR:: STREAM error', error)
+        reject()
+      });
   });
 };
 
+/* 记录出错文件 */
+const recordError = ({code, url, chapter_number, section_number}) => {
+  if (code === ERROR_CHAPTER) {
+    ERROR_LIST[chapter_number] = url
+  }
+  if (code === ERROR_SECTION) {
+    const chapter_current = ERROR_LIST[chapter_number]
+    !chapter_current && (ERROR_LIST[chapter_number] = [])
+    if(typeof chapter_current === 'string') return
+    chapter_current[section_number] = url
+  }
+}
+
+/* 写入章节图片 */
+const save_section = async (chapter_name, section_url, section_number) => {
+  try {
+    // 下载图片
+    const section_stream = await request('GET', section_url, { responseType: "stream" })
+    // 节获取 & 写入
+    await writeFile(section_stream, chapter_name, section_number)
+  } catch (error) {
+    console.error('ERROR:: save_section', error)
+    return Promise.reject({code: ERROR_SECTION, url: section_url, section_number})
+  }
+}
+
 // main
 (async function(){
-  try {
-    // console.log('=== main start ===\r\n')
-    // 根据 html_list 获取 html 文件
-    const html_length = html_list.length
-    for (let html_i = 0; html_i < html_length; html_i++) {
-      const html_url = html_list[html_i];
-      const html_name = `第${html_i + 1}回`
-      // 创建章节目录
-      // console.log(`创建章节目录:: ${html_name}\r\n`)
-      await fs.promises.mkdir(path.resolve(__dirname, `../../dist/bleach/${html_name}`), { recursive: true })
-      // 获取 HTML
-      // console.log(`HTML:: 开始下载 -${html_name}\r\n`)
-      // url: 'https://www.manhuadb.com/manhua/141/5558_92149_p1.html',
-      const html = await request('GET', html_url)
-      // console.log(`HTML:: 完成下载 -${html_name}\r\n`)
-      // 每一章的图片列表
-      const img_url_list = get_img_url_list(html)
-      // 依次下载图片并保存本地
-      const img_length = img_url_list.length
-      // 根据 img_url_list 获取并保存图片
-      console.log(`开始下载${html_name}\r\n`)
-      for (let img_i = 0; img_i < img_length; img_i++) {
-        const img_url = img_url_list[img_i];
-        const img_name = img_i + 1
-        // 下载图片
-        console.log(`IMG:: 开始下载 -${html_name} -${img_name}\r\n${img_url}`)
-        const img_stream = await request('GET', img_url, { responseType: "stream" })
-        console.log(`IMG:: 完成下载 -${html_name} -${img_name}`)
-        // 写入本地
-        await writeFile(img_stream, html_name, img_name)
-        console.log(`${html_name}:: 写入${img_name}图片成功\r\n`)
+    // 根据 chapter_list 获取 html 文件
+    const chapter_length = chapter_list.length
+    console.log(`CHAPTER:: 共${chapter_length} 回`)
+    for (let chapter_index = 0; chapter_index < chapter_length; chapter_index++) {
+      const chapter_url = chapter_list[chapter_index];
+      const chapter_number = chapter_index + 1
+      const chapter_name = `第${chapter_number}回`
+      try {
+        // 创建章节目录
+        await fs.promises.mkdir(path.resolve(__dirname, `../../dist/bleach/${chapter_name}`), { recursive: true })
+        // 获取节列表
+        const section_url_list = await get_img_url_list(chapter_url)
+        // 依次下载图片并保存本地
+        const section_length = section_url_list.length
+        // 根据 section_url_list 获取并保存图片
+        console.log(`开始下载${chapter_name}[section_length:${section_length}]\r\n`)
+        for (let section_index = 0; section_index < section_length; section_index++) {
+          try {
+            const section_url = section_url_list[section_index];
+            const section_number = section_index + 1
+            // 下载章节
+            console.log(`${chapter_name}:: 开始下载${section_number}图片\r\n`)
+            await save_section(chapter_name, section_url, section_number)
+            console.log(`${chapter_name}:: 写入${section_number}图片成功\r\n`)
+          } catch (error) {
+            console.error('ERROR:: SECTION', error)
+            error.code && recordError({...error, chapter_name})
+            continue
+          }
+        }
+        console.log(`${chapter_name}下载完成\r\n`)
+      } catch (error) {
+        console.error(`ERROR:: 第${chapter_name}回处理失败`, error)
+        error.code && recordError({...error, chapter_name})
+        continue
       }
-      console.log(`${html_name}下载完成\r\n`)
     }
-  } catch (error) {
-    console.log('ERROR:: main\r\n',error)
-  }
+    if (ERROR_LIST.length > 0) {
+      fs.writeFileSync(ERROR_FILE, ERROR_LIST)
+    }
 })()
+
+process.on('beforeExit', (code) => {
+  console.log('进程 beforeExit 事件的退出码: ', code);
+});
+
+process.on('exit', (code) => {
+  console.log('进程 exit 事件的退出码: ', code);
+});
