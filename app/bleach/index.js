@@ -19,6 +19,10 @@ const book_3_list = book.hasPart[2].hasPart.map(i => i.url)
 // 总章数列表
 const chapter_list = [...book_1_list, ...book_2_list, ...book_3_list]
 
+const CHAPTER_TOTAL = chapter_list.length
+let CHAPTER_DONE_NUMBER = 0
+
+
 /* 从 html 中获取图片url列表 */
 const get_img_url_list = async chapter_url => {
   try {
@@ -42,11 +46,11 @@ const get_img_url_list = async chapter_url => {
 }
 
 /* 写入图片 */
-const writeFile = (section_stream, chapter_name, section_number) => {
+const write_file = (dist_file_name, section_stream) => {
   return new Promise((resolve, reject) => {
-    const distFileName = path.resolve(__dirname, `../../dist/bleach/${chapter_name}/${section_number}.jpg`)
-      console.log(`开始写入：/dist/bleach/${chapter_name}/${section_number}.jpg`)
-      const stream = fs.createWriteStream(distFileName, { encoding: 'binary' });
+    try {
+      console.log(`开始写入：${dist_file_name}`)
+      const stream = fs.createWriteStream(dist_file_name, { encoding: 'binary' });
       section_stream.pipe(stream);
       stream.on('close', () => {
         console.log('stream close')
@@ -56,11 +60,15 @@ const writeFile = (section_stream, chapter_name, section_number) => {
         console.error('ERROR:: STREAM error', error)
         reject()
       });
+    } catch (error) {
+      console.error('ERROR:: write_file error', error)
+      reject()
+    }
   });
 };
 
 /* 记录出错文件 */
-const recordError = ({code, url, chapter_number, section_number}) => {
+const record_error = ({code, url, chapter_number, section_number}) => {
   if (code === ERROR_CHAPTER) {
     ERROR_LIST[chapter_number] = url
   }
@@ -75,10 +83,13 @@ const recordError = ({code, url, chapter_number, section_number}) => {
 /* 写入章节图片 */
 const save_section = async (chapter_name, section_url, section_number) => {
   try {
+    const dist_file_name = path.resolve(__dirname, `../../dist/bleach/${chapter_name}/${section_number}.jpg`)
+    // 已存在图片则跳过
+    if (fs.existsSync(dist_file_name)) return true
     // 下载图片
     const section_stream = await request('GET', section_url, { responseType: "stream" })
     // 节获取 & 写入
-    await writeFile(section_stream, chapter_name, section_number)
+    await write_file(dist_file_name, section_stream)
   } catch (error) {
     console.error('ERROR:: save_section', error)
     return Promise.reject({code: ERROR_SECTION, url: section_url, section_number})
@@ -109,18 +120,23 @@ const save_section = async (chapter_name, section_url, section_number) => {
             const section_number = section_index + 1
             // 下载章节
             console.log(`${chapter_name}:: 开始下载${section_number}图片\r\n`)
-            await save_section(chapter_name, section_url, section_number)
+            const is_exist = await save_section(chapter_name, section_url, section_number)
+            // 记录进度
+            CURRENT_SECTION_INDEX = section_index
+            if(is_exist) continue
             console.log(`${chapter_name}:: 写入${section_number}图片成功\r\n`)
           } catch (error) {
             console.error('ERROR:: SECTION', error)
-            error.code && recordError({...error, chapter_name})
+            error.code && record_error({...error, chapter_name})
             continue
           }
         }
         console.log(`${chapter_name}下载完成\r\n`)
+        // 记录进度
+        CHAPTER_DONE_NUMBER = chapter_number
       } catch (error) {
         console.error(`ERROR:: 第${chapter_name}回处理失败`, error)
-        error.code && recordError({...error, chapter_name})
+        error.code && record_error({...error, chapter_name})
         continue
       }
     }
@@ -129,10 +145,9 @@ const save_section = async (chapter_name, section_url, section_number) => {
     }
 })()
 
-process.on('beforeExit', (code) => {
-  console.log('进程 beforeExit 事件的退出码: ', code);
-});
-
 process.on('exit', (code) => {
   console.log('进程 exit 事件的退出码: ', code);
+  if(CHAPTER_DONE_NUMBER !== CHAPTER_TOTAL) {
+    console.error('下载未完成 请重新运行')
+  }
 });
