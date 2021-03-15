@@ -149,5 +149,7 @@ process.on('exit', (code) => {
   console.log('进程 exit 事件的退出码: ', code);
   if(CHAPTER_DONE_NUMBER !== CHAPTER_TOTAL) {
     console.error('下载未完成 请重新运行')
+    return
   }
+  console.log('🎉🎉🎉 全部下载完成 🎉🎉🎉')
 });
