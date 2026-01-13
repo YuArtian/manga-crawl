@@ -1,16 +1,27 @@
 {
-  "name": "manga-crawl",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "comic-downloader",
+  "version": "2.0.0",
+  "description": "A manga/comic downloader with browser and direct download modes",
+  "type": "module",
+  "main": "src/index.js",
   "scripts": {
-    "bleach": "node ./app/bleach/index.js"
+    "start": "node src/index.js",
+    "download": "node src/index.js download"
   },
-  "keywords": [],
+  "keywords": [
+    "manga",
+    "comic",
+    "downloader",
+    "crawler"
+  ],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
-    "axios": "^0.19.2",
-    "cheerio": "^1.0.0-rc.3"
+    "commander": "^12.1.0",
+    "p-limit": "^6.1.0",
+    "playwright": "^1.49.1"
   }
 }
