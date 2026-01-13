@@ -227,26 +227,120 @@ export function buildImageUrls(data, preferWebp = true) {
 }
 
 /**
+ * Determine chapter type from title
+ * @param {string} title - Chapter title
+ * @returns {string} Chapter type: 'chapter' | 'volume' | 'appendix' | 'extra' | 'other'
+ */
+export function getChapterType(title) {
+  // Volume: 第XX卷
+  if (/^第\d+卷$/.test(title)) {
+    return 'volume';
+  }
+  // Appendix: XX卷附录
+  if (/附录/.test(title)) {
+    return 'appendix';
+  }
+  // Extra: 番外篇
+  if (/番外/.test(title)) {
+    return 'extra';
+  }
+  // Chapter: 第XX话, 第XX回
+  if (/^第\d+[话回]/.test(title) || /^第\d+话/.test(title)) {
+    return 'chapter';
+  }
+  // Other special content
+  return 'other';
+}
+
+/**
+ * Extract chapter number from title
+ * @param {string} title - Chapter title
+ * @returns {number|null} Chapter number or null
+ */
+export function extractChapterNumber(title) {
+  // Match: 第XX话, 第XX回, 第XX卷
+  const match = title.match(/第(\d+)[话回卷]/);
+  if (match) {
+    return parseInt(match[1], 10);
+  }
+  return null;
+}
+
+/**
  * Extract chapter list from comic page HTML
  * @param {string} html - Comic page HTML
- * @returns {Array} Array of chapter info objects
+ * @returns {Array} Array of chapter info objects with chapterId, title, type, number
  */
 export function extractChapterList(html) {
   const chapters = [];
 
   // Match chapter links in the chapter list
-  // Format: <a href="/comic/30252/405318.html">第01回</a>
-  const regex = /<a[^>]*href=["']\/comic\/\d+\/(\d+)\.html["'][^>]*>([^<]+)<\/a>/g;
+  // Format: <a href="/comic/30252/405318.html"><b>第01回</b></a>
+  // Or: <a href="https://m.manhuagui.com/comic/30252/405318.html"><b>第01回</b></a>
+  const regex = /<a[^>]*href=["'](?:https?:\/\/[^/]+)?\/comic\/\d+\/(\d+)\.html["'][^>]*><b>([^<]+)<\/b>/g;
   let match;
 
   while ((match = regex.exec(html)) !== null) {
+    const chapterId = match[1];
+    const title = match[2].trim();
+    const type = getChapterType(title);
+    const number = extractChapterNumber(title);
+
     chapters.push({
-      chapterId: match[1],
-      title: match[2].trim(),
+      chapterId,
+      title,
+      type,
+      number,
     });
   }
 
   return chapters;
+}
+
+/**
+ * Filter chapters by type
+ * @param {Array} chapters - Chapter list
+ * @param {Object} options - Filter options
+ * @param {boolean} [options.includeVolumes=false] - Include volume chapters
+ * @param {boolean} [options.includeAppendix=true] - Include appendix chapters
+ * @param {boolean} [options.includeExtra=true] - Include extra chapters
+ * @param {boolean} [options.includeOther=true] - Include other chapters
+ * @returns {Array} Filtered chapter list
+ */
+export function filterChapters(chapters, options = {}) {
+  const {
+    includeVolumes = false,
+    includeAppendix = true,
+    includeExtra = true,
+    includeOther = true,
+  } = options;
+
+  return chapters.filter(ch => {
+    if (ch.type === 'volume' && !includeVolumes) return false;
+    if (ch.type === 'appendix' && !includeAppendix) return false;
+    if (ch.type === 'extra' && !includeExtra) return false;
+    if (ch.type === 'other' && !includeOther) return false;
+    return true;
+  });
+}
+
+/**
+ * Sort chapters by number (ascending order, oldest first)
+ * @param {Array} chapters - Chapter list
+ * @returns {Array} Sorted chapter list
+ */
+export function sortChapters(chapters) {
+  return [...chapters].sort((a, b) => {
+    // Chapters with numbers come first, sorted by number
+    if (a.number !== null && b.number !== null) {
+      return a.number - b.number;
+    }
+    // Chapters with numbers before those without
+    if (a.number !== null) return -1;
+    if (b.number !== null) return 1;
+    // Fall back to title comparison
+    return a.title.localeCompare(b.title, 'zh-CN');
+  });
 }
 
 /**
@@ -328,7 +422,11 @@ export default {
   decodeImageData,
   extractImageDataFromHtml,
   buildImageUrls,
+  getChapterType,
+  extractChapterNumber,
   extractChapterList,
+  filterChapters,
+  sortChapters,
   extractComicInfo,
   getImageRequestHeaders,
   toMobileUrl,

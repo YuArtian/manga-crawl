@@ -11,6 +11,9 @@ import { scheduler, Priority } from "./core/scheduler.js";
 import stateManager from "./state/manager.js";
 import { config } from "./utils/config.js";
 import { logger, LOG_LEVELS } from "./utils/logger.js";
+import { getLibrary } from "./utils/library.js";
+import { BrowserStrategy } from "./strategies/browser.js";
+import * as manhuagui from "./parsers/manhuagui.js";
 
 // Initialize config
 config.load();
@@ -33,20 +36,23 @@ program
 program
   .command("download")
   .description("Download a chapter or comic")
-  .requiredOption("-u, --url <url>", "Chapter or comic URL")
+  .option("-u, --url <url>", "Chapter or comic URL")
+  .option("-n, --name <name>", "Comic name from library (e.g., chainsawman)")
   .option("-m, --mode <mode>", "Download mode (browser or direct)", "browser")
   .option("-o, --output <dir>", "Output directory")
   .option("-p, --proxy <url>", "Proxy URL (e.g., http://127.0.0.1:7890)")
-  .option("--all", "Download all chapters (for comic URL)")
+  .option("--all", "Download all chapters")
   .option("--headless", "Run browser in headless mode", true)
   .option("--no-headless", "Run browser with visible window")
   .action(async (options) => {
     const log = logger.child("CLI");
 
     try {
-      log.info("Starting download...");
-      log.info(`URL: ${options.url}`);
-      log.info(`Mode: ${options.mode}`);
+      // Validate options
+      if (!options.url && !options.name) {
+        log.error("Either --url or --name is required");
+        process.exit(1);
+      }
 
       // Override config if needed
       if (options.output) {
@@ -60,23 +66,212 @@ program
         log.info(`Proxy: ${options.proxy}`);
       }
 
+      // If using --name, get manga from library
+      if (options.name) {
+        const library = getLibrary();
+        const manga = await library.getMangaByName(options.name);
+
+        if (!manga) {
+          log.error(`Manga not found in library: ${options.name}`);
+          log.info("Use 'sync' command to add manga to library first");
+          process.exit(1);
+        }
+
+        if (options.all) {
+          // Download all chapters
+          await downloadAllChapters(manga, options, log);
+        } else {
+          log.error("When using --name, --all flag is required");
+          log.info("Use: npm start -- download -n chainsawman --all");
+          process.exit(1);
+        }
+      } else {
+        // Single URL download
+        log.info("Starting download...");
+        log.info(`URL: ${options.url}`);
+        log.info(`Mode: ${options.mode}`);
+
+        const result = await pipeline.downloadChapter({
+          url: options.url,
+          mode: options.mode,
+        });
+
+        if (result.success) {
+          if (result.skipped) {
+            log.success("Chapter already downloaded (skipped)");
+          } else {
+            log.success(`Download completed!`);
+            log.info(`Pages: ${result.successCount}/${result.totalPages}`);
+            log.info(`Time: ${result.elapsed.toFixed(1)}s`);
+          }
+        } else {
+          log.error(`Download failed: ${result.error || "Unknown error"}`);
+          process.exit(1);
+        }
+      }
+    } catch (error) {
+      log.error(`Error: ${error.message}`);
+      process.exit(1);
+    }
+  });
+
+/**
+ * Download all chapters for a manga
+ */
+async function downloadAllChapters(manga, options, log) {
+  const library = getLibrary();
+
+  // Check if chapters are synced
+  if (!manga.chapterMap || manga.chapterMap.length === 0) {
+    log.error(`No chapters synced for ${manga.name}`);
+    log.info(`Run: npm start -- sync ${manga.name}`);
+    process.exit(1);
+  }
+
+  const chapters = manga.chapterMap;
+  log.info(`Starting batch download: ${manga.name}`);
+  log.info(`Total chapters: ${chapters.length}`);
+  log.info(`Mode: ${options.mode}`);
+
+  let successCount = 0;
+  let failCount = 0;
+  let skipCount = 0;
+
+  for (let i = 0; i < chapters.length; i++) {
+    const ch = chapters[i];
+    const chapterUrl = await library.buildChapterUrl(manga.name, ch.chapterId);
+
+    log.info(`\n[${i + 1}/${chapters.length}] ${ch.title}`);
+
+    try {
       const result = await pipeline.downloadChapter({
-        url: options.url,
+        url: chapterUrl,
         mode: options.mode,
+        comicName: manga.name,
       });
 
       if (result.success) {
         if (result.skipped) {
-          log.success("Chapter already downloaded (skipped)");
+          skipCount++;
+          log.info(`  Skipped (already downloaded)`);
         } else {
-          log.success(`Download completed!`);
-          log.info(`Pages: ${result.successCount}/${result.totalPages}`);
-          log.info(`Time: ${result.elapsed.toFixed(1)}s`);
+          successCount++;
+          log.success(
+            `  Done: ${result.successCount}/${result.totalPages} pages`,
+          );
         }
       } else {
-        log.error(`Download failed: ${result.error || "Unknown error"}`);
+        failCount++;
+        log.error(`  Failed: ${result.error}`);
+      }
+    } catch (error) {
+      failCount++;
+      log.error(`  Error: ${error.message}`);
+    }
+  }
+
+  log.info(`\n========== Summary ==========`);
+  log.info(`Total: ${chapters.length}`);
+  log.success(`Success: ${successCount}`);
+  log.info(`Skipped: ${skipCount}`);
+  if (failCount > 0) {
+    log.error(`Failed: ${failCount}`);
+  }
+}
+
+/**
+ * Sync command - fetch chapter list from website and update library
+ */
+program
+  .command("sync <name>")
+  .description("Sync chapter list for a manga from website")
+  .option("-p, --proxy <url>", "Proxy URL")
+  .action(async (name, options) => {
+    const log = logger.child("CLI");
+
+    try {
+      const library = getLibrary();
+      const manga = await library.getMangaByName(name);
+
+      if (!manga) {
+        log.error(`Manga not found in library: ${name}`);
+        log.info("Add it to index.json first with name and id");
         process.exit(1);
       }
+
+      log.info(`Syncing chapters for: ${name} (ID: ${manga.id})`);
+
+      // Set proxy if provided
+      if (options.proxy) {
+        config.setProxy(options.proxy);
+        log.info(`Using proxy: ${options.proxy}`);
+      }
+
+      // Build manga URL
+      const data = await library.load();
+      const mangaUrl = `${data.site}/comic/${manga.id}/`;
+
+      // Fetch chapter list using browser strategy
+      const strategy = new BrowserStrategy({
+        headless: true,
+      });
+
+      try {
+        const allChapters = await strategy.fetchChapterList(mangaUrl);
+
+        // Filter out volumes, sort by chapter number
+        const chapters = manhuagui.sortChapters(
+          manhuagui.filterChapters(allChapters, { includeVolumes: false }),
+        );
+
+        log.info(
+          `Found ${allChapters.length} items, ${chapters.length} chapters (excluding volumes)`,
+        );
+
+        // Update library
+        await library.updateChapters(name, chapters);
+
+        log.success(`Synced ${chapters.length} chapters to library`);
+        log.info(`First chapter: ${chapters[0]?.title || "N/A"}`);
+        log.info(
+          `Last chapter: ${chapters[chapters.length - 1]?.title || "N/A"}`,
+        );
+      } finally {
+        await strategy.cleanup();
+      }
+    } catch (error) {
+      log.error(`Error: ${error.message}`);
+      process.exit(1);
+    }
+  });
+
+/**
+ * List command - show manga in library
+ */
+program
+  .command("list")
+  .description("List manga in library")
+  .action(async () => {
+    const log = logger.child("CLI");
+
+    try {
+      const library = getLibrary();
+      const mangaList = await library.listManga();
+
+      if (mangaList.length === 0) {
+        log.info("No manga in library");
+        return;
+      }
+
+      console.log("\nManga in library:\n");
+      for (const manga of mangaList) {
+        const chapterCount =
+          manga.chapterMap?.length || manga.chapters?.length || 0;
+        console.log(
+          `  ${manga.name} (ID: ${manga.id}) - ${chapterCount} chapters`,
+        );
+      }
+      console.log("");
     } catch (error) {
       log.error(`Error: ${error.message}`);
       process.exit(1);

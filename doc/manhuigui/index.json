@@ -1,0 +1,13 @@
+{
+  "site": "https://m.manhuagui.com",
+  "lib": [
+    {
+      "name": "chainsawman",
+      "url": "https://m.manhuagui.com/comic/$id/$chapterId.html#p=$page",
+      "id": "30252",
+      "chapters": [
+        "405318"
+      ]
+    }
+  ]
+}

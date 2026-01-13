@@ -513,6 +513,59 @@ export class BrowserStrategy extends BaseStrategy {
   }
 
   /**
+   * Fetch chapter list from comic homepage
+   * @param {string} comicUrl - Comic homepage URL (e.g., https://m.manhuagui.com/comic/30252/)
+   * @returns {Promise<Array>} Array of chapter info
+   */
+  async fetchChapterList(comicUrl) {
+    const log = logger.child("Browser");
+    log.info(`Fetching chapter list from: ${comicUrl}`);
+
+    // Launch browser if not already running
+    if (!this.browser) {
+      this.browser = await chromium.launch({
+        headless: this.headless,
+      });
+    }
+
+    // Create new context with proxy if configured
+    const contextOptions = {
+      viewport: this.viewport,
+      userAgent:
+        this.userAgent ||
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15",
+    };
+
+    if (this.proxyUrl) {
+      contextOptions.proxy = { server: this.proxyUrl };
+    }
+
+    const context = await this.browser.newContext(contextOptions);
+    const page = await context.newPage();
+
+    try {
+      // Navigate to comic page
+      await page.goto(comicUrl, {
+        waitUntil: "domcontentloaded",
+        timeout: this.timeout,
+      });
+
+      // Wait for chapter list to load
+      await page.waitForSelector("#chapterList", { timeout: 10000 });
+
+      // Extract chapter list from page
+      const html = await page.content();
+      const chapters = manhuagui.extractChapterList(html);
+
+      log.info(`Found ${chapters.length} chapters`);
+      return chapters;
+    } finally {
+      await page.close().catch(() => {});
+      await context.close().catch(() => {});
+    }
+  }
+
+  /**
    * Cleanup browser resources
    */
   async cleanup() {
