@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<!-- saved from url=(0090)https://cdn.holmesmind.com/js/capmapping.htm?fp_uuid=3612-f3d0e0d04596bc8e36be013b5fb69b93 -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=GBK">
+    <title>cap</title>
+  <style data-id="immersive-translate-input-injected-css">.immersive-translate-input {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 2147483647;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.immersive-translate-attach-loading::after {
+  content: " ";
+
+  --loading-color: #f78fb6;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: block;
+  margin: 12px auto;
+  position: relative;
+  color: white;
+  left: -100px;
+  box-sizing: border-box;
+  animation: immersiveTranslateShadowRolling 1.5s linear infinite;
+
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-2000%, -50%);
+  z-index: 100;
+}
+
+.immersive-translate-loading-spinner {
+  vertical-align: middle !important;
+  width: 10px !important;
+  height: 10px !important;
+  display: inline-block !important;
+  margin: 0 4px !important;
+  border: 2px rgba(221, 244, 255, 0.6) solid !important;
+  border-top: 2px rgba(0, 0, 0, 0.375) solid !important;
+  border-left: 2px rgba(0, 0, 0, 0.375) solid !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  -webkit-animation: immersive-translate-loading-animation 0.6s infinite linear !important;
+  animation: immersive-translate-loading-animation 0.6s infinite linear !important;
+}
+
+@-webkit-keyframes immersive-translate-loading-animation {
+  from {
+    -webkit-transform: rotate(0deg);
+  }
+
+  to {
+    -webkit-transform: rotate(359deg);
+  }
+}
+
+@keyframes immersive-translate-loading-animation {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(359deg);
+  }
+}
+
+.immersive-translate-input-loading {
+  --loading-color: #f78fb6;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: block;
+  margin: 12px auto;
+  position: relative;
+  color: white;
+  left: -100px;
+  box-sizing: border-box;
+  animation: immersiveTranslateShadowRolling 1.5s linear infinite;
+}
+
+@keyframes immersiveTranslateShadowRolling {
+  0% {
+    box-shadow: 0px 0 rgba(255, 255, 255, 0), 0px 0 rgba(255, 255, 255, 0),
+      0px 0 rgba(255, 255, 255, 0), 0px 0 rgba(255, 255, 255, 0);
+  }
+
+  12% {
+    box-shadow: 100px 0 var(--loading-color), 0px 0 rgba(255, 255, 255, 0),
+      0px 0 rgba(255, 255, 255, 0), 0px 0 rgba(255, 255, 255, 0);
+  }
+
+  25% {
+    box-shadow: 110px 0 var(--loading-color), 100px 0 var(--loading-color),
+      0px 0 rgba(255, 255, 255, 0), 0px 0 rgba(255, 255, 255, 0);
+  }
+
+  36% {
+    box-shadow: 120px 0 var(--loading-color), 110px 0 var(--loading-color),
+      100px 0 var(--loading-color), 0px 0 rgba(255, 255, 255, 0);
+  }
+
+  50% {
+    box-shadow: 130px 0 var(--loading-color), 120px 0 var(--loading-color),
+      110px 0 var(--loading-color), 100px 0 var(--loading-color);
+  }
+
+  62% {
+    box-shadow: 200px 0 rgba(255, 255, 255, 0), 130px 0 var(--loading-color),
+      120px 0 var(--loading-color), 110px 0 var(--loading-color);
+  }
+
+  75% {
+    box-shadow: 200px 0 rgba(255, 255, 255, 0), 200px 0 rgba(255, 255, 255, 0),
+      130px 0 var(--loading-color), 120px 0 var(--loading-color);
+  }
+
+  87% {
+    box-shadow: 200px 0 rgba(255, 255, 255, 0), 200px 0 rgba(255, 255, 255, 0),
+      200px 0 rgba(255, 255, 255, 0), 130px 0 var(--loading-color);
+  }
+
+  100% {
+    box-shadow: 200px 0 rgba(255, 255, 255, 0), 200px 0 rgba(255, 255, 255, 0),
+      200px 0 rgba(255, 255, 255, 0), 200px 0 rgba(255, 255, 255, 0);
+  }
+}
+
+.immersive-translate-modal {
+  position: fixed;
+  z-index: 2147483647;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgb(0, 0, 0);
+  background-color: rgba(0, 0, 0, 0.4);
+  font-size: 15px;
+}
+
+.immersive-translate-modal-content {
+  background-color: #fefefe;
+  margin: 10% auto;
+  padding: 40px 24px 24px;
+  border-radius: 12px;
+  width: 350px;
+  font-family: system-ui, -apple-system, "Segoe UI", "Roboto", "Ubuntu",
+    "Cantarell", "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji";
+  position: relative;
+}
+
+@media screen and (max-width: 768px) {
+  .immersive-translate-modal-content {
+    margin: 25% auto !important;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .immersive-translate-modal-content {
+    width: 80vw !important;
+    margin: 20vh auto !important;
+    padding: 20px 12px 12px !important;
+  }
+
+  .immersive-translate-modal-title {
+    font-size: 14px !important;
+  }
+
+  .immersive-translate-modal-body {
+    font-size: 13px !important;
+    max-height: 60vh !important;
+  }
+
+  .immersive-translate-btn {
+    font-size: 13px !important;
+    padding: 8px 16px !important;
+    margin: 0 4px !important;
+  }
+
+  .immersive-translate-modal-footer {
+    gap: 6px !important;
+    margin-top: 16px !important;
+  }
+}
+
+.immersive-translate-modal .immersive-translate-modal-content-in-input {
+  max-width: 500px;
+}
+.immersive-translate-modal-content-in-input .immersive-translate-modal-body {
+  text-align: left;
+  max-height: unset;
+}
+
+.immersive-translate-modal-title {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: #333333;
+}
+
+.immersive-translate-modal-body {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 400;
+  color: #333333;
+  margin-top: 24px;
+}
+
+@media screen and (max-width: 768px) {
+  .immersive-translate-modal-body {
+    max-height: 250px;
+    overflow-y: auto;
+  }
+}
+
+.immersive-translate-close {
+  color: #666666;
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.immersive-translate-close:hover,
+.immersive-translate-close:focus {
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.immersive-translate-modal-footer {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+
+.immersive-translate-btn {
+  width: fit-content;
+  color: #fff;
+  background-color: #ea4c89;
+  border: none;
+  font-size: 14px;
+  margin: 0 8px;
+  padding: 9px 30px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.immersive-translate-btn-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.immersive-translate-btn:hover {
+  background-color: #f082ac;
+}
+.immersive-translate-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.immersive-translate-btn:disabled:hover {
+  background-color: #ea4c89;
+}
+
+.immersive-translate-link-btn {
+  background-color: transparent;
+  color: #ea4c89;
+  border: none;
+  cursor: pointer;
+  height: 30px;
+  line-height: 30px;
+}
+
+.immersive-translate-cancel-btn {
+  /* gray color */
+  background-color: rgb(89, 107, 120);
+}
+
+.immersive-translate-cancel-btn:hover {
+  background-color: hsl(205, 20%, 32%);
+}
+
+.immersive-translate-action-btn {
+  background-color: transparent;
+  color: #ea4c89;
+  border: 1px solid #ea4c89;
+}
+
+.immersive-translate-btn svg {
+  margin-right: 5px;
+}
+
+.immersive-translate-link {
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-drag: none;
+  text-decoration: none;
+  color: #ea4c89;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+}
+
+.immersive-translate-primary-link {
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-drag: none;
+  text-decoration: none;
+  color: #ea4c89;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+}
+
+.immersive-translate-modal input[type="radio"] {
+  margin: 0 6px;
+  cursor: pointer;
+}
+
+.immersive-translate-modal label {
+  cursor: pointer;
+}
+
+.immersive-translate-close-action {
+  position: absolute;
+  top: 2px;
+  right: 0px;
+  cursor: pointer;
+}
+
+.imt-image-status {
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 16px !important;
+}
+.imt-image-status img,
+.imt-image-status svg,
+.imt-img-loading {
+  width: 28px !important;
+  height: 28px !important;
+  margin: 0 0 8px 0 !important;
+  min-height: 28px !important;
+  min-width: 28px !important;
+  position: relative !important;
+}
+.imt-img-loading {
+  background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAMAAACfWMssAAAAtFBMVEUAAAD////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////oK74hAAAAPHRSTlMABBMIDyQXHwyBfFdDMSw+OjXCb+5RG51IvV/k0rOqlGRM6KKMhdvNyZBz9MaupmxpWyj437iYd/yJVNZeuUC7AAACt0lEQVRIx53T2XKiUBCA4QYOiyCbiAsuuGBcYtxiYtT3f6/pbqoYHVFO5r+iivpo6DpAWYpqeoFfr9f90DsYAuRSWkFnPO50OgR9PwiCUFcl2GEcx+N/YBh6pvKaefHlUgZd1zVe0NbYcQjGBfzrPE8Xz8aF+71D8gG6DHFPpc4a7xFiCDuhaWgKgGIJQ3d5IMGDrpS4S5KgpIm+en9f6PlAhKby4JwEIxlYJV9h5k5nee9GoxHJ2IDSNB0dwdad1NAxDJ/uXDHYmebdk4PdbkS58CIVHdYSUHTYYRWOJblWSyu2lmy3KNFVJNBhxcuGW4YBVCbYGRZwIooipHsNqjM4FbgOQqQqSKQQU9V8xmi1QlgHqQQ6DDBvRUVCDirs+EzGDGOQTCATgtYTnbCVLgsVgRE0T1QE0qHCFAht2z6dLvJQs3Lo2FQoDxWNUiBhaP4eRgwNkI+dAjVOA/kUrIDwf3CG8NfNOE0eiFotSuo+rBiq8tD9oY4Qzc6YJw99hl1wzpQvD7ef2M8QgnOGJfJw+EltQc+oX2yn907QB22WZcvlUpd143dqQu+8pCJZuGE4xCuPXJqqcs5sNpsI93Rmzym1k4Npk+oD1SH3/a3LOK/JpUBpWfqNySxWzCfNCUITuDG5dtuphrUJ1myeIE9bIsPiKrfqTai5WZxbhtNphYx6GEIHihyGFTI69lje/rxajdh0s0msZ0zYxyPLhYCb1CyHm9Qsd2H37Y3lugVwL9kNh8Ot8cha6fUNQ8nuXi5z9/ExsAO4zQrb/ev1yrCB7lGyQzgYDGuxq1toDN/JGvN+HyWNHKB7zEoK+PX11e12G431erGYzwmytAWU56fkMHY5JJnDRR2eZji3AwtIcrEV8Cojat/BdQ7XOwGV1e1hDjGGjXbdArm8uJZtCH5MbcctVX8A1WpqumJHwckAAAAASUVORK5CYII=");
+  background-size: 28px 28px;
+  animation: image-loading-rotate 1s linear infinite !important;
+}
+
+.imt-image-status span {
+  color: var(--bg-2, #fff) !important;
+  font-size: 14px !important;
+  line-height: 14px !important;
+  font-weight: 500 !important;
+  font-family: "PingFang SC", Arial, sans-serif !important;
+}
+
+.imt-primary-button {
+  display: flex;
+  padding: 12px 80px;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  border-radius: 8px;
+  background: #ea4c89;
+  color: #fff;
+  font-size: 16px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 24px;
+  border: none;
+  cursor: pointer;
+}
+
+.imt-retry-text {
+  color: #999;
+  text-align: center;
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 21px;
+  cursor: pointer;
+}
+
+.imt-action-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.imt-modal-content-text {
+  text-align: left;
+  color: #333;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+}
+
+@keyframes image-loading-rotate {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+.imt-linear-gradient-text {
+  background: linear-gradient(90deg, #00a6ff 0%, #c369ff 52.4%, #ff4590 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.imt-flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.imt-linear-black-btn {
+  border-radius: 50px;
+  background: linear-gradient(66deg, #222 19%, #696969 94.25%);
+  height: 48px;
+  width: 100%;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  justify-content: center;
+}
+</style></head>
+  <body>
+    <script type="text/javascript">
+      function getCookie(name) {
+        const cookies = document.cookie.split('; ');
+        for (let cookie of cookies) {
+          const [key, value] = cookie.split('=');
+          if (key.trim().toLowerCase() === name.toLowerCase()) {
+            return decodeURIComponent(value);
+          }
+        }
+        return '';
+      }
+
+      function setCookie(key, value, days = 7, secure = false) {
+        const expires = new Date();
+        expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+        let cookieStr = `${key}=${encodeURIComponent(
+          value
+        )}; expires=${expires.toUTCString()}; path=/`;
+        if (secure) cookieStr += '; Secure; SameSite=Strict'; // 只有 HTTPS 才能使用 Secure
+        document.cookie = cookieStr;
+      }
+
+      function getLocalStorageItem(key) {
+        return localStorage.getItem(key) || '';
+      }
+    </script>
+
+    <!--====== eland ======-->
+    <!-- <script src="https://dmp.eland-tech.com/dmpreceiver/eland_tracker.js" type="text/javascript"charset="utf-8"></script> -->
+    <script type="text/javascript">
+      (function () {
+        let clickforce_id = getCookie('P') ? getCookie('P') : 'media_cookie_id';
+        var ck = new Image();
+        ck.src = `https://cm.lndata.com/?tid=4084&uid=${clickforce_id}`;
+      })();
+    </script>
+
+    <!--====== lndata ======-->
+    <noscript>
+      <img src="https://cm.lndata.com/?tid=4084&uid={media_cookie_id}" width="1" height="1" />
+    </noscript>
+    <script type="text/javascript">
+      // are they just useless???
+      var edmpvct = 0,
+        edmpcct = 0;
+
+      var requestParamStr = window.location.search;
+      var hasFirstPartyCookies = requestParamStr === '' ? false : true;
+
+      var e = {};
+      document.cookie.split(';').forEach(function (b) {
+        b = b.split('=');
+        e[b[0].trim()] = (b[1] || '').trim();
+      });
+      var strUrl = location.search,
+        aryPara = [];
+      -1 !== strUrl.indexOf('?') &&
+        strUrl
+          .split('?')[1]
+          .split('&')
+          .forEach(function (b) {
+            b = b.split('=');
+            aryPara[b[0].trim()] = (b[1] || '').trim();
+          });
+      var setRL = function (b, c) {
+        var d = Math.floor(
+          (864e6 * Math.ceil(new Date().getTime() / 864e6) - new Date().getTime()) / 1e3
+        );
+        if (0 < c.length) {
+          c.push(b);
+          var f = c.join(',');
+        } else f = b;
+        document.cookie =
+          'RL=' + f + ';Domain=.holmesmind.com;Samsite=none;Secret;Path=/;Max-age=' + d;
+      };
+
+      function c_tag_mk(b, c, d) {
+        if ('GDPR' in e && 'disagree' == e.GDPR) return !1;
+        'img' == b
+          ? ((a = document.createElement('img')),
+            a.setAttribute('style', 'display:none'),
+            a.setAttribute('height', '0'),
+            a.setAttribute('width', '0'),
+            (a.src = c))
+          : 'iframe' == b
+          ? ((a = document.createElement('iframe')),
+            a.setAttribute('style', 'display:none'),
+            a.setAttribute('height', '0'),
+            a.setAttribute('width', '0'),
+            (a.src = c))
+          : ((a = document.createElement('script')),
+            (a.type = 'text/javascript'),
+            (a.src = c),
+            d && (a.async = !0));
+        document.body.appendChild(a);
+      }
+
+      // for local dev
+      if (window.location.hostname == '127.0.0.1') {
+        c_tag_mk('img', 'http://127.0.0.1:8000/cm-t.php', !0);
+      } else {
+        if (hasFirstPartyCookies) {
+          var urlParams = new URLSearchParams(requestParamStr);
+          var MAIN = urlParams.get('fp_uuid');
+
+          // TODO: url encoding
+          // testing path
+          // just point to ALB when testing stage
+          if (MAIN) {
+            c_tag_mk('img', `https://cm-dev-poc.holmesmind.com/fp?fp_uuid=${MAIN}`, !0);
+          }
+          // TODO: when testing "development", the real testing target should also point to "cm".
+          // but we are not doing it yet because of time limitations
+
+          // deprecated GCP path, remove when tested
+          // c_tag_mk("img", `https://c.holmesmind.com/cm-t?fp_uuid=${MAIN}&DM=${DM}`, !0);
+
+          // production path.
+          c_tag_mk('img', `https://c.holmesmind.com/cm`, !0);
+        } else {
+          // testing path
+          // just point to ALB when testing stage
+          c_tag_mk('img', `https://cm-dev-poc.holmesmind.com/fp`, !0);
+          // production path
+          c_tag_mk('img', 'https://c.holmesmind.com/cm', !0);
+          // deprecated GCP path, remove when tested.
+          // c_tag_mk("img", "https://c.holmesmind.com/cm-t", !0);
+
+          // production path.
+          // c_tag_mk("img", "https://c.holmesmind.com/cm", !0);
+        }
+      }
+
+      // FIXME: c_tag_mk() above and below only differ in making 'iframe' and 'img'. why?
+      if (e.fcm != '1') {
+        if (hasFirstPartyCookies) {
+          var urlParams = new URLSearchParams(requestParamStr);
+          var MAIN = urlParams.get('MAIN');
+
+          // TODO: url encoding
+          // testing path
+          if (MAIN) {
+            c_tag_mk('iframe', `https://cm-dev-poc.holmesmind.com/fp?fp_uuid=${MAIN}`, !0);
+            // deprecated GCP environment, remove when tested.
+            // c_tag_mk("iframe", `https://c.holmesmind.com/cm-t?fp_uuid=${MAIN}`, !0);
+          }
+        } else {
+          // testing path
+          c_tag_mk('iframe', 'https://cm-dev-poc.holmesmind.com/fp', !0);
+
+          // deprecated GCP environment, remove when tested.
+          // c_tag_mk("iframe", "https://c.holmesmind.com/cm-t", !0);
+        }
+        // production path.
+        c_tag_mk('iframe', 'https://fcm.holmesmind.com/cm.php', !0);
+        c_tag_mk('script', 'https://fcm2.holmesmind.com/cm.js', !0);
+      }
+      var ElandTracker = ElandTracker || {},
+        efpid;
+      ElandTracker.init = function () {
+        ElandTracker.isAllReady && ElandTracker.isAllReady()
+          ? (efpid = ElandTracker.getFingerPrint())
+          : setTimeout(ElandTracker.init, 300);
+      };
+      try {
+        var hinet = sessionStorage.getItem('hinet') ? sessionStorage.getItem('hinet') : '';
+        window.onbeforeunload = function () {
+          if (sessionStorage.getItem('hinet')) {
+            sessionStorage.removeItem('hinet');
+          }
+        };
+        if (!hinet) {
+          sessionStorage.setItem('hinet', true);
+          c_tag_mk('script', 'https://t.ssp.hinet.net/utag.js', true);
+        }
+      } catch (e) {
+        var hinet = '';
+        if (!hinet) {
+          c_tag_mk('script', 'https://t.ssp.hinet.net/utag.js', true);
+        }
+      }
+
+      var partnerId = 'cf';
+      window.__hitagCmdQueue = window.__hitagCmdQueue || [];
+
+      function hiball() {
+        __hitagCmdQueue.push(arguments);
+      }
+
+      var refUrl = encodeURIComponent(location.origin + location.pathname);
+      'rtid' in aryPara &&
+        '' !== aryPara.rtid &&
+        ('RL' in e
+          ? -1 == e.RL.split(',').indexOf(aryPara.rtid) &&
+            (setRL(aryPara.rtid, e.RL.split(',')),
+            c_tag_mk(
+              'img',
+              'https://t.holmesmind.com/rt/rl?rtid=' +
+                aryPara.rtid +
+                '&cf_uid=' +
+                e.P +
+                '&uu_m=' +
+                aryPara.uum,
+              !0
+            ),
+            c_tag_mk(
+              'img',
+              ' https://rtid-record.holmesmind.com/api/rt/rl?cf_uid=' +
+                e.P +
+                '&tag=' +
+                aryPara.rtid,
+              !0
+            ))
+          : (setRL(aryPara.rtid, []),
+            c_tag_mk(
+              'img',
+              'https://t.holmesmind.com/rt/rl?rtid=' +
+                aryPara.rtid +
+                '&cf_uid=' +
+                e.P +
+                '&uu_m=' +
+                aryPara.uum,
+              !0
+            ),
+            c_tag_mk(
+              'img',
+              ' https://rtid-record.holmesmind.com/api/rt/rl?cf_uid=' +
+                e.P +
+                '&tag=' +
+                aryPara.rtid,
+              !0
+            ))),
+        /*c_tag_mk("iframe", "https://dmp.eland-tech.com/dmpreceiver/cookie_transfer.jsp?target=m.holmesmind.com/ml/eland", !0),c_tag_mk("img", "https://cm.lndata.com/?tid=4084&uid=" + e.P, !0),c_tag_mk("img", "https://t.ssp.hinet.net/cm?c=cf&ref=" + refUrl + "&cid=" + e.P, !0),*/
+        hiball('fire', {
+          partnerId: partnerId,
+          referrer: getDomainWithHttp(document.referrer)
+        }),
+        hiball('cm', partnerId, e.P),
+        c_tag_mk(
+          'img',
+          'https://cm.g.doubleclick.net/pixel?google_nid=clickforce_dmp&google_cm&cf_uid=' +
+            e.P +
+            '&uu_m=' +
+            aryPara.uum,
+          !0
+        ),
+        navigator.userAgent.match(/iPhone|iPad|iPod/i) && ElandTracker.init();
+
+      function getDomain(url = null) {
+        if (url == null) url = window.location.hostname;
+        url = url.split('.');
+        var md = new Array();
+        var mdsort = new Array();
+        var lw = ['com', 'org', 'net', 'cc', 'info', 'me'];
+        if (url.length <= 3) {
+          var minget = 0;
+          if (lw.indexOf(url[url.length - 1]) != -1 && url.length > 2) {
+            minget = 1;
+          }
+          for (var i = url.length; i >= minget; i--) {
+            md[md.length++] = url[i];
+          }
+          for (var i = md.length; i > 0; i--) {
+            if (typeof md[i] != 'undefined') {
+              mdsort[mdsort.length++] = md[i];
+            }
+          }
+        } else {
+          var minget = 3;
+          if (lw.indexOf(url[url.length - 1]) != -1) {
+            minget = 2;
+          }
+          for (var i = url.length; i >= url.length - 3; i--) {
+            md[md.length++] = url[i];
+          }
+          for (var i = md.length; i >= 0; i--) {
+            if (typeof md[i] != 'undefined') {
+              mdsort[mdsort.length++] = md[i];
+            }
+          }
+        }
+        return mdsort.join('.');
+      }
+
+      function getDomainWithHttp(url = null) {
+        if (url.substr(-1) == '/') {
+          url = url.substring(0, url.length - 1);
+        }
+        var url = url.split('://');
+
+        if (url.length == 2) {
+          var tmp = url[1].split('/');
+          return url[0] + '://' + getDomain(tmp[0]);
+        } else {
+          var tmp = url[0].split('/');
+          return getDomain(tmp[0]);
+        }
+      }
+    </script><img style="display:none" height="0" width="0" src="./fp"><img style="display:none" height="0" width="0" src="./cm"><script type="text/javascript" src="./utag.js" async=""></script><img style="display:none" height="0" width="0" src="./pixel">
+
+    <!--====== 91app ======-->
+    <script src="./nineyi.tracking.client.iife.js"></script>
+    <script>
+      const initialTracking91app = () => {
+        const appId = '91app';
+        let PValue = getCookie('P');
+        let uidValue = getLocalStorageItem('nineyi_did');
+
+        const tracking91app = () => {
+          const sendTracking = () => {
+            if (appId && PValue && uidValue)
+              document.body.appendChild(
+                Object.assign(document.createElement('img'), {
+                  src: `https://ad.holmesmind.com/adserver/cm?app=${appId}&P=${PValue}&uid=${uidValue}`,
+                  className: 'CF_tracking-91app',
+                  style: 'display: none;'
+                })
+              );
+          };
+
+          window.nineyiTracking
+            .initialize({
+              cid: PValue,
+              tid: '5',
+              idStoredType: 'LOCAL_STORAGE',
+              uid: ''
+            })
+            .then(function resolve(initialStatus) {
+              if (initialStatus === 'SUCCESS') {
+                uidValue = getLocalStorageItem('nineyi_did');
+                sendTracking();
+              }
+              // else {
+              //   console.log('initial fail', initialStatus)
+              // }
+            });
+        };
+
+        const checkCookie = setInterval(() => {
+          PValue = getCookie('P');
+          if (PValue) {
+            clearInterval(checkCookie);
+            uidValue = getLocalStorageItem('nineyi_did');
+            tracking91app();
+          }
+        }, 500);
+      };
+
+      initialTracking91app();
+    </script>
+  
+
+<img src="./cm(1)" class="CF_tracking-91app" style="display: none;"></body></html>

@@ -19,6 +19,10 @@
     "outputDir": "./downloads",
     "stateDir": "./state"
   },
+  "proxy": {
+    "enabled": false,
+    "url": ""
+  },
   "log": {
     "level": "info"
   }

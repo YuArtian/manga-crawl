@@ -78,39 +78,129 @@ export function decodeImageData(encoded) {
 }
 
 /**
+ * Unpack packed JavaScript code (p,a,c,k,e,d format)
+ * @param {string} packed - Packed JS code
+ * @returns {string|null} Unpacked code
+ */
+export function unpackJs(packed) {
+  try {
+    // Extract the packed function parameters
+    // Format: eval(function(p,a,c,k,e,d){...}('packed_string','split_char',count,keywords,...))
+    const match = packed.match(/\}\('([^']+)',(\d+),(\d+),'([^']+)'\.split\('\|'\)/);
+    if (!match) {
+      return null;
+    }
+
+    const p = match[1];
+    const a = parseInt(match[2], 10);
+    const c = parseInt(match[3], 10);
+    const k = match[4].split('|');
+
+    // Base conversion function
+    const e = (c) => {
+      return (c < a ? '' : e(parseInt(c / a))) + 
+        ((c = c % a) > 35 ? String.fromCharCode(c + 29) : c.toString(36));
+    };
+
+    // Replace placeholders with actual values
+    let unpacked = p;
+    while (c--) {
+      if (k[c]) {
+        unpacked = unpacked.replace(new RegExp('\\b' + e(c) + '\\b', 'g'), k[c]);
+      }
+    }
+
+    return unpacked;
+  } catch (error) {
+    console.error('Failed to unpack JS:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Extract SMH.reader config from unpacked JS
+ * @param {string} unpacked - Unpacked JS code
+ * @returns {Object|null} Reader config
+ */
+export function extractReaderConfig(unpacked) {
+  try {
+    // Match SMH.reader({...}) or SMH.imgData({...})
+    const match = unpacked.match(/SMH\.(?:reader|imgData)\((\{[\s\S]*?\})\)/);
+    if (!match) {
+      return null;
+    }
+
+    // Parse the config object (it's valid JSON-like)
+    const configStr = match[1];
+    
+    // Use Function to safely evaluate the object
+    const config = new Function('return ' + configStr)();
+    return config;
+  } catch (error) {
+    console.error('Failed to extract reader config:', error.message);
+    return null;
+  }
+}
+
+/**
  * Extract image data from HTML source
  * @param {string} html - Page HTML source
  * @returns {Object|null} Extracted data
  */
 export function extractImageDataFromHtml(html) {
   try {
-    // Extract img_data variable
+    // Method 1: Try to extract packed JS and unpack it
+    const packedMatch = html.match(/window\[.*?eval.*?\]\(function\(p,a,c,k,e,d\)\{[\s\S]*?\}(\('[\s\S]*?\.split\('\|'\),\d+,\{\}\)\))/);
+    
+    if (packedMatch) {
+      const packedCode = packedMatch[1];
+      const unpacked = unpackJs(packedCode);
+      
+      if (unpacked) {
+        const config = extractReaderConfig(unpacked);
+        
+        if (config && config.images) {
+          // Build proper image data structure
+          const host = config.host || 'i';
+          const sl = config.sl || {};
+          
+          // Build query string from sl parameters
+          const slParams = Object.entries(sl).map(([k, v]) => `${k}=${v}`).join('&');
+          const suffix = slParams ? `?${slParams}` : '';
+          
+          return {
+            host: `https://${host}.hamreus.com`,
+            imgPre: '',
+            total: config.images.length,
+            images: config.images.map(img => ({
+              img: img + suffix,
+              img_webp: img.replace(/\.(jpg|png)$/i, '.webp') + suffix,
+            })),
+            raw: config, // Keep raw config for debugging
+          };
+        }
+      }
+    }
+
+    // Method 2: Try old img_data format (fallback)
     const imgDataMatch = html.match(/var\s+img_data\s*=\s*['"]([^'"]+)['"]/);
-    if (!imgDataMatch) {
-      return null;
+    if (imgDataMatch) {
+      const imageList = decodeImageData(imgDataMatch[1]);
+      if (imageList) {
+        const hostMatch = html.match(/data-host=["']([^"']+)["']/);
+        const imgPreMatch = html.match(/data-img_pre=["']([^"']+)["']/);
+        const totalMatch = html.match(/data-total=["'](\d+)["']/);
+
+        return {
+          host: hostMatch ? hostMatch[1] : '',
+          imgPre: imgPreMatch ? imgPreMatch[1] : '',
+          total: totalMatch ? parseInt(totalMatch[1], 10) : imageList.length,
+          images: imageList,
+        };
+      }
     }
 
-    const imageList = decodeImageData(imgDataMatch[1]);
-    if (!imageList) {
-      return null;
-    }
-
-    // Extract host and path prefix from data attributes
-    // <div class="vg-r-data" data-host="..." data-img_pre="...">
-    const hostMatch = html.match(/data-host=["']([^"']+)["']/);
-    const imgPreMatch = html.match(/data-img_pre=["']([^"']+)["']/);
-    const totalMatch = html.match(/data-total=["'](\d+)["']/);
-
-    const host = hostMatch ? hostMatch[1] : '';
-    const imgPre = imgPreMatch ? imgPreMatch[1] : '';
-    const total = totalMatch ? parseInt(totalMatch[1], 10) : imageList.length;
-
-    return {
-      host,
-      imgPre,
-      total,
-      images: imageList,
-    };
+    return null;
   } catch (error) {
     console.error('Failed to extract image data:', error.message);
     return null;

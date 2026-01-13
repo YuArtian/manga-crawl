@@ -3,13 +3,13 @@
  * This strategy controls a real browser to handle JS-rendered content
  */
 
-import { chromium } from 'playwright';
-import path from 'path';
-import { BaseStrategy } from './base.js';
-import { writeBinaryAtomic, ensureDir } from '../utils/file.js';
-import * as manhuagui from '../parsers/manhuagui.js';
-import config from '../utils/config.js';
-import logger from '../utils/logger.js';
+import { chromium } from "playwright";
+import path from "path";
+import { BaseStrategy } from "./base.js";
+import { writeBinaryAtomic, ensureDir } from "../utils/file.js";
+import * as manhuagui from "../parsers/manhuagui.js";
+import config from "../utils/config.js";
+import logger from "../utils/logger.js";
 
 /**
  * Browser-based download strategy
@@ -18,16 +18,21 @@ import logger from '../utils/logger.js';
 export class BrowserStrategy extends BaseStrategy {
   constructor(options = {}) {
     super(options);
-    this.name = 'browser';
+    this.name = "browser";
     this.browser = null;
     this.page = null;
     this.context = null;
 
     // Configuration
-    this.headless = options.headless ?? config.get('browser.headless', true);
-    this.timeout = options.timeout ?? config.get('browser.timeout', 30000);
-    this.viewport = options.viewport ?? config.get('browser.viewport', { width: 390, height: 844 });
-    this.userAgent = options.userAgent ?? config.get('browser.userAgent');
+    this.headless = options.headless ?? config.get("browser.headless", true);
+    this.timeout = options.timeout ?? config.get("browser.timeout", 30000);
+    this.viewport =
+      options.viewport ??
+      config.get("browser.viewport", { width: 390, height: 844 });
+    this.userAgent = options.userAgent ?? config.get("browser.userAgent");
+
+    // Proxy configuration
+    this.proxyUrl = config.getProxy();
 
     // Chapter data
     this.chapterUrl = null;
@@ -35,6 +40,7 @@ export class BrowserStrategy extends BaseStrategy {
     this.chapter = null;
     this.imageData = null;
     this.pageUrls = [];
+    this.totalPages = 0;
   }
 
   /**
@@ -46,36 +52,96 @@ export class BrowserStrategy extends BaseStrategy {
     this.comic = context.comic;
     this.chapter = context.chapter;
 
-    const log = logger.child('Browser');
+    const log = logger.child("Browser");
     log.info(`Preparing browser for ${this.chapterUrl}`);
+
+    // Log proxy info
+    if (this.proxyUrl) {
+      log.info(`Using proxy: ${this.proxyUrl}`);
+    }
 
     // Launch browser
     this.browser = await chromium.launch({
       headless: this.headless,
     });
 
-    // Create context with mobile viewport
-    this.context = await this.browser.newContext({
+    // Create context with mobile viewport and optional proxy
+    const contextOptions = {
       viewport: this.viewport,
       userAgent: this.userAgent,
-    });
+    };
+
+    // Add proxy if configured
+    if (this.proxyUrl) {
+      contextOptions.proxy = { server: this.proxyUrl };
+    }
+
+    this.context = await this.browser.newContext(contextOptions);
 
     // Create page
     this.page = await this.context.newPage();
     this.page.setDefaultTimeout(this.timeout);
 
     // Navigate to chapter page
-    log.info('Loading chapter page...');
+    log.info("Loading chapter page...");
     await this.page.goto(this.chapterUrl, {
-      waitUntil: 'networkidle',
+      waitUntil: "domcontentloaded",
+      timeout: this.timeout,
     });
 
-    // Wait for image data to be available
-    await this.page.waitForFunction(() => {
-      return typeof window.img_data !== 'undefined' || document.querySelector('.vg-r-data');
-    }, { timeout: this.timeout });
+    // Wait a bit for JS to execute
+    await this.page.waitForTimeout(2000);
 
-    log.info('Page loaded successfully');
+    // Debug: Log page title and URL
+    const pageTitle = await this.page.title();
+    const pageUrl = this.page.url();
+    log.info(`Page loaded - Title: "${pageTitle}", URL: ${pageUrl}`);
+
+    // Debug: Check what's on the page
+    const debugInfo = await this.page.evaluate(() => {
+      return {
+        hasImgData: typeof window.img_data !== "undefined",
+        imgDataType: typeof window.img_data,
+        hasVgRData: !!document.querySelector(".vg-r-data"),
+        bodyLength: document.body?.innerHTML?.length || 0,
+        scripts: Array.from(document.querySelectorAll("script")).length,
+        title: document.title,
+        // Check for common anti-bot elements
+        hasCloudflare: !!document.querySelector(
+          "#cf-wrapper, .cf-browser-verification",
+        ),
+        hasCaptcha: !!document.querySelector(
+          '[class*="captcha"], [id*="captcha"]',
+        ),
+        bodyPreview: document.body?.innerText?.slice(0, 500) || "",
+      };
+    });
+
+    log.info(
+      `Debug info: hasImgData=${debugInfo.hasImgData}, hasVgRData=${debugInfo.hasVgRData}, bodyLength=${debugInfo.bodyLength}`,
+    );
+    log.info(
+      `Debug: scripts=${debugInfo.scripts}, hasCloudflare=${debugInfo.hasCloudflare}, hasCaptcha=${debugInfo.hasCaptcha}`,
+    );
+    log.info(`Page text preview: ${debugInfo.bodyPreview.slice(0, 200)}...`);
+
+    // Wait for SMH.reader to be available (the site uses SMH.reader for image data)
+    try {
+      await this.page.waitForFunction(
+        () => {
+          return (
+            typeof window.SMH !== "undefined" &&
+            typeof window.SMH.reader !== "undefined"
+          );
+        },
+        { timeout: this.timeout },
+      );
+      log.info("SMH.reader is available");
+    } catch (waitError) {
+      log.warn("SMH.reader not found, will try to extract from HTML");
+    }
+
+    log.info("Page loaded successfully");
   }
 
   /**
@@ -83,57 +149,213 @@ export class BrowserStrategy extends BaseStrategy {
    * @returns {Promise<Object>}
    */
   async getChapterInfo() {
-    const log = logger.child('Browser');
+    const log = logger.child("Browser");
 
-    // Extract image data from page
+    // Extract image data from page using SMH.reader config
     const data = await this.page.evaluate(() => {
-      // Get img_data variable
-      const imgDataVar = window.img_data;
-      if (!imgDataVar) return null;
+      const debug = [];
 
-      // Decode base64
-      let decoded;
-      try {
-        decoded = JSON.parse(atob(imgDataVar));
-      } catch (e) {
-        return null;
+      // Method 1: Look for the manga image that's already loaded
+      const mangaImg = document.querySelector("#manga img");
+      if (mangaImg && mangaImg.src) {
+        debug.push("Found manga img: " + mangaImg.src);
       }
 
-      // Get host and prefix from data attributes
-      const vrData = document.querySelector('.vg-r-data');
-      const host = vrData?.dataset?.host || '';
-      const imgPre = vrData?.dataset?.img_pre || '';
-      const total = parseInt(vrData?.dataset?.total || decoded.length, 10);
+      // Method 2: Extract from packed script in HTML
+      const scripts = document.querySelectorAll("script");
+      for (const script of scripts) {
+        const content = script.textContent || "";
 
-      // Get title
-      const titleEl = document.querySelector('h1, h2');
-      const title = titleEl?.textContent?.trim() || '';
+        // Check if this is the packed script with SMH.reader
+        if (content.includes("SMH.reader") || content.includes("SMH.imgData")) {
+          debug.push("Found script with SMH.reader");
 
-      return {
-        host,
-        imgPre,
-        total,
-        title,
-        images: decoded,
-      };
+          // Find the packed function - updated regex
+          const match = content.match(
+            /\}(?:\(|\()['"]([^'"]+)['"],\s*(\d+),\s*(\d+),\s*['"]([^'"]+)['"](?:\[.*?\])?\(['"]([^'"]+)['"]\)/,
+          );
+
+          if (!match) {
+            // Try alternative format
+            const altMatch = content.match(
+              /\}\('([^']+)',(\d+),(\d+),'([^']+)'\.split/,
+            );
+            if (altMatch) {
+              debug.push("Found alt packed format");
+              const p = altMatch[1];
+              const a = parseInt(altMatch[2], 10);
+              const k = altMatch[4].split("|");
+              let c = parseInt(altMatch[3], 10);
+
+              // Base conversion function
+              const e = (c) => {
+                return (
+                  (c < a ? "" : e(parseInt(c / a))) +
+                  ((c = c % a) > 35
+                    ? String.fromCharCode(c + 29)
+                    : c.toString(36))
+                );
+              };
+
+              // Replace placeholders
+              let unpacked = p;
+              const originalC = c;
+              while (c--) {
+                if (k[c]) {
+                  unpacked = unpacked.replace(
+                    new RegExp("\\b" + e(c) + "\\b", "g"),
+                    k[c],
+                  );
+                }
+              }
+
+              debug.push("Unpacked: " + unpacked.substring(0, 200));
+
+              // Extract config - try multiple patterns
+              let configMatch = unpacked.match(
+                /SMH\.reader\((\{[\s\S]*?\})\)\.init/,
+              );
+              if (!configMatch) {
+                configMatch = unpacked.match(
+                  /SMH\.(?:reader|imgData)\((\{[^}]+\})\)/,
+                );
+              }
+
+              if (configMatch) {
+                debug.push("Found config match");
+                try {
+                  // Fix the config string - it might have unquoted keys
+                  let configStr = configMatch[1];
+                  const config = new Function("return " + configStr)();
+                  debug.push(
+                    "Parsed config, images count: " +
+                      (config.images?.length || 0),
+                  );
+
+                  return {
+                    host: config.host || "i",
+                    images: config.images || [],
+                    total: config.images?.length || config.count || 0,
+                    sl: config.sl || {},
+                    title: document.title || "",
+                    debug: debug,
+                  };
+                } catch (e) {
+                  debug.push("Parse error: " + e.message);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Method 3: Get the page count from the UI and construct URLs
+      const pageInfo = document.querySelector(".manga-page");
+      if (pageInfo) {
+        const match = pageInfo.textContent.match(/(\d+)\/(\d+)P/);
+        if (match) {
+          const total = parseInt(match[2], 10);
+          debug.push("Found page count from UI: " + total);
+
+          // Try to get image URL pattern from the loaded image
+          const img = document.querySelector("#manga img");
+          if (img && img.src) {
+            const imgSrc = img.src;
+            debug.push("Current img src: " + imgSrc);
+
+            // Extract base URL and pattern
+            // Example: https://i.hamreus.com/ps1/d/电锯人/第01回/1.jpg.webp
+            const urlMatch = imgSrc.match(
+              /(https?:\/\/[^/]+)(.*?)(\d+)(\.(?:jpg|png|webp)(?:\.webp)?)/,
+            );
+            if (urlMatch) {
+              const host = urlMatch[1];
+              const pathPrefix = urlMatch[2];
+              const ext = urlMatch[4];
+
+              // Build all image URLs
+              const images = [];
+              for (let i = 1; i <= total; i++) {
+                images.push(pathPrefix + i + ext);
+              }
+
+              return {
+                host: host,
+                images: images,
+                total: total,
+                sl: {},
+                title: document.title || "",
+                debug: debug,
+              };
+            }
+          }
+        }
+      }
+
+      // Method 4: Fallback to old img_data format
+      if (typeof window.img_data !== "undefined") {
+        try {
+          const decoded = JSON.parse(atob(window.img_data));
+          const vrData = document.querySelector(".vg-r-data");
+          return {
+            host: vrData?.dataset?.host || "",
+            imgPre: vrData?.dataset?.img_pre || "",
+            images: decoded,
+            total: decoded.length,
+            title: document.title || "",
+            debug: debug,
+          };
+        } catch (e) {
+          debug.push("img_data error: " + e.message);
+        }
+      }
+
+      return { debug: debug, error: "No data found" };
     });
 
-    if (!data) {
-      throw new Error('Failed to extract image data from page');
+    // Log debug info
+    if (data?.debug) {
+      data.debug.forEach((msg) => log.debug(`Extract debug: ${msg}`));
     }
 
+    if (!data || data.error || !data.images || data.images.length === 0) {
+      log.error(`Data extraction failed: ${JSON.stringify(data)}`);
+      throw new Error("Failed to extract image data from page");
+    }
+
+    log.info(`Extracted config: host=${data.host}, total=${data.total}`);
     this.imageData = data;
 
     // Build page URLs
-    this.pageUrls = data.images.map(img => {
-      const filename = img.img_webp || img.img;
-      return `${data.host}${data.imgPre}${filename}`;
+    const host = data.host.includes("://")
+      ? data.host
+      : `https://${data.host}.hamreus.com`;
+    const imgPre = data.imgPre || "";
+
+    // Build query string from sl parameters
+    const slParams = data.sl
+      ? Object.entries(data.sl)
+          .map(([k, v]) => `${k}=${v}`)
+          .join("&")
+      : "";
+    const suffix = slParams ? `?${slParams}` : "";
+
+    this.pageUrls = data.images.map((img) => {
+      // Handle both string format (new) and object format (old)
+      if (typeof img === "string") {
+        return `${host}${img}${suffix}`;
+      } else {
+        const filename = img.img_webp || img.img;
+        return `${host}${imgPre}${filename}`;
+      }
     });
 
-    log.info(`Found ${data.total} pages`);
+    this.totalPages = data.total;
+    log.info(`Found ${this.totalPages} pages`);
+    log.debug(`First image URL: ${this.pageUrls[0]}`);
 
     return {
-      totalPages: data.total,
+      totalPages: this.totalPages,
       title: data.title,
     };
   }
@@ -155,31 +377,111 @@ export class BrowserStrategy extends BaseStrategy {
    * @param {string} [url] - Optional URL override
    * @returns {Promise<Buffer>}
    */
+  /**
+   * Navigate to a specific page and capture the image via network interception
+   * This method bypasses CORS by intercepting the actual network response
+   */
   async fetchPage(pageIndex, url = null) {
-    const log = logger.child('Browser');
-    const imageUrl = url || this.pageUrls[pageIndex - 1];
+    const log = logger.child("Browser");
 
-    if (!imageUrl) {
-      throw new Error(`No URL for page ${pageIndex}`);
-    }
+    log.info(`Fetching page ${pageIndex}/${this.totalPages}`);
 
-    log.debug(`Fetching page ${pageIndex}: ${imageUrl}`);
+    // Store captured image data
+    let capturedImageData = null;
+    let capturedImageUrl = null;
 
-    // Use page.evaluate to fetch with proper context (cookies, referer)
-    const imageData = await this.page.evaluate(async (imgUrl) => {
-      try {
-        const response = await fetch(imgUrl);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+    // Set up response listener to capture image data
+    const responseHandler = async (response) => {
+      const url = response.url();
+      // Check if this is an image from the manga CDN
+      if (url.includes("hamreus.com") && /\.(jpg|png|webp)/i.test(url)) {
+        try {
+          const status = response.status();
+          if (status === 200) {
+            const buffer = await response.body();
+            if (buffer && buffer.length > 1000) {
+              // Ignore tiny responses
+              capturedImageData = buffer;
+              capturedImageUrl = url;
+              log.debug(`Captured image: ${url} (${buffer.length} bytes)`);
+            }
+          }
+        } catch (e) {
+          // Response body might not be available, ignore
         }
-        const arrayBuffer = await response.arrayBuffer();
-        return Array.from(new Uint8Array(arrayBuffer));
-      } catch (error) {
-        throw new Error(`Fetch failed: ${error.message}`);
       }
-    }, imageUrl);
+    };
 
-    return Buffer.from(imageData);
+    this.page.on("response", responseHandler);
+
+    try {
+      // Navigate to the specific page using hash parameter
+      const pageUrl = `${this.chapterUrl}#p=${pageIndex}`;
+      await this.page.goto(pageUrl, {
+        waitUntil: "domcontentloaded",
+        timeout: 30000,
+      });
+
+      // Wait for the image to load
+      await this.page.waitForTimeout(2000);
+
+      // Wait for image element to have a valid src
+      try {
+        await this.page.waitForFunction(
+          () => {
+            const img = document.querySelector("#manga img");
+            return img && img.src && img.complete && img.naturalWidth > 0;
+          },
+          { timeout: 10000 },
+        );
+      } catch (e) {
+        log.debug(`Image load wait timeout, checking captured data...`);
+      }
+
+      // Give a bit more time for response handler to process
+      await this.page.waitForTimeout(500);
+
+      // Check if we captured the image via network
+      if (capturedImageData && capturedImageData.length > 1000) {
+        log.debug(
+          `Page ${pageIndex} captured via network: ${capturedImageData.length} bytes`,
+        );
+        return capturedImageData;
+      }
+
+      // If network capture failed, try to get the image URL and fetch directly
+      const imgSrc = await this.page.evaluate(() => {
+        const img = document.querySelector("#manga img");
+        return img ? img.src : null;
+      });
+
+      if (imgSrc && imgSrc.startsWith("http")) {
+        log.debug(`Trying direct fetch for: ${imgSrc}`);
+
+        // Use Playwright's request context to fetch with proper headers
+        const response = await this.context.request.get(imgSrc, {
+          headers: {
+            Referer: this.chapterUrl,
+            Accept: "image/webp,image/apng,image/*,*/*;q=0.8",
+          },
+        });
+
+        if (response.ok()) {
+          const buffer = await response.body();
+          log.debug(
+            `Page ${pageIndex} fetched directly: ${buffer.length} bytes`,
+          );
+          return buffer;
+        }
+
+        throw new Error(`Direct fetch failed with status ${response.status()}`);
+      }
+
+      throw new Error(`No image data captured for page ${pageIndex}`);
+    } finally {
+      // Remove the response handler
+      this.page.off("response", responseHandler);
+    }
   }
 
   /**
@@ -190,16 +492,16 @@ export class BrowserStrategy extends BaseStrategy {
    * @returns {Promise<string>}
    */
   async savePage(pageIndex, data, outputDir) {
-    const log = logger.child('Browser');
+    const log = logger.child("Browser");
 
     // Determine file extension from URL or default to jpg
-    const url = this.pageUrls[pageIndex - 1] || '';
-    let ext = '.jpg';
-    if (url.includes('.webp')) ext = '.webp';
-    else if (url.includes('.png')) ext = '.png';
+    const url = this.pageUrls[pageIndex - 1] || "";
+    let ext = ".jpg";
+    if (url.includes(".webp")) ext = ".webp";
+    else if (url.includes(".png")) ext = ".png";
 
     // Create filename with zero-padded index
-    const filename = `${String(pageIndex).padStart(3, '0')}${ext}`;
+    const filename = `${String(pageIndex).padStart(3, "0")}${ext}`;
     const filePath = path.join(outputDir, filename);
 
     // Ensure directory exists and write file
@@ -214,8 +516,8 @@ export class BrowserStrategy extends BaseStrategy {
    * Cleanup browser resources
    */
   async cleanup() {
-    const log = logger.child('Browser');
-    log.debug('Cleaning up browser...');
+    const log = logger.child("Browser");
+    log.debug("Cleaning up browser...");
 
     if (this.page) {
       await this.page.close().catch(() => {});
@@ -232,7 +534,7 @@ export class BrowserStrategy extends BaseStrategy {
       this.browser = null;
     }
 
-    log.debug('Browser cleanup complete');
+    log.debug("Browser cleanup complete");
   }
 
   /**
