@@ -544,18 +544,31 @@ export class BrowserStrategy extends BaseStrategy {
     const page = await context.newPage();
 
     try {
-      // Navigate to comic page
+      // Navigate to manga page
       await page.goto(comicUrl, {
         waitUntil: "domcontentloaded",
         timeout: this.timeout,
       });
 
-      // Wait for chapter list to load
-      await page.waitForSelector("#chapterList", { timeout: 10000 });
+      // Wait for page to load, then get HTML
+      // The chapter list may be hidden initially, so we just wait for DOM
+      await page.waitForTimeout(2000);
 
-      // Extract chapter list from page
+      // Extract chapter list from page HTML (works even if element is hidden)
       const html = await page.content();
       const chapters = manhuagui.extractChapterList(html);
+
+      if (chapters.length === 0) {
+        log.warn("No chapters found, page might need more time to load");
+        // Try waiting a bit more
+        await page.waitForTimeout(3000);
+        const retryHtml = await page.content();
+        const retryChapters = manhuagui.extractChapterList(retryHtml);
+        if (retryChapters.length > 0) {
+          log.info(`Found ${retryChapters.length} chapters (after retry)`);
+          return retryChapters;
+        }
+      }
 
       log.info(`Found ${chapters.length} chapters`);
       return chapters;
